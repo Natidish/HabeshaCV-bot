@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 bot.py
 CV Maker Telegram Bot
@@ -12,10 +11,10 @@ CV Maker Telegram Bot
     (Telegram Stars ወይም Teleberr)
  5. ክፍያው ከተረጋገጠ በኋላ password ወደ ተጠቃሚው ይላካል
 """
-
+ 
 import logging
 import os
-
+ 
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -33,16 +32,16 @@ from telegram.ext import (
     PreCheckoutQueryHandler,
     filters,
 )
-
+ 
 import config
 from cv_pdf import generate_locked_cv
-
+ 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
-
+ 
 # ---------------------------------------------------------------------------
 # Conversation states
 # ---------------------------------------------------------------------------
@@ -50,11 +49,11 @@ logger = logging.getLogger(__name__)
     FULL_NAME, PHONE, EMAIL, ADDRESS, SUMMARY,
     EXPERIENCE, EDUCATION, SKILLS, LANGUAGES, CONFIRM,
 ) = range(10)
-
+ 
 # in-memory store: {user_id: {"password":..., "locked_pdf":..., "paid": bool}}
 PENDING = {}
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # Helper keyboards
 # ---------------------------------------------------------------------------
@@ -63,16 +62,16 @@ def confirm_keyboard():
         [InlineKeyboardButton("✅ ትክክል ነው፣ CV ስራልኝ", callback_data="confirm_yes")],
         [InlineKeyboardButton("🔁 እንደገና ልጀምር", callback_data="confirm_restart")],
     ])
-
-
+ 
+ 
 def payment_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"🌟 በ Telegram Stars ክፈል ({config.STAR_PRICE}⭐)",
                                callback_data="pay_stars")],
         [InlineKeyboardButton("💵 በ Teleberr ክፈል", callback_data="pay_teleberr")],
     ])
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # Conversation: collecting CV data
 # ---------------------------------------------------------------------------
@@ -86,27 +85,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN,
     )
     return FULL_NAME
-
-
+ 
+ 
 async def get_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["full_name"] = update.message.text.strip()
     await update.message.reply_text("📞 የስልክ ቁጥርዎን ይላኩ፦")
     return PHONE
-
-
+ 
+ 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["phone"] = update.message.text.strip()
     await update.message.reply_text("📧 ኢሜይል አድራሻዎን ይላኩ (ከሌለዎት 'የለኝም' ይላኩ)፦")
     return EMAIL
-
-
+ 
+ 
 async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     context.user_data["email"] = "" if text in ("የለኝም", "-", "የለም") else text
     await update.message.reply_text("📍 አድራሻዎን ይላኩ (ከተማ/ክልል)፦")
     return ADDRESS
-
-
+ 
+ 
 async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["address"] = update.message.text.strip()
     await update.message.reply_text(
@@ -114,8 +113,8 @@ async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "ምሳሌ፡ 'የ3 ዓመት ልምድ ያለው ሶፍትዌር ዲቨሎፐር...'"
     )
     return SUMMARY
-
-
+ 
+ 
 async def get_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["summary"] = update.message.text.strip()
     await update.message.reply_text(
@@ -128,8 +127,8 @@ async def get_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN,
     )
     return EXPERIENCE
-
-
+ 
+ 
 async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     context.user_data["experience"] = "" if text in ("የለኝም", "-") else text
@@ -141,8 +140,8 @@ async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN,
     )
     return EDUCATION
-
-
+ 
+ 
 async def get_education(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["education"] = update.message.text.strip()
     await update.message.reply_text(
@@ -150,8 +149,8 @@ async def get_education(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "ምሳሌ፦ Python, JavaScript, Communication, Team work"
     )
     return SKILLS
-
-
+ 
+ 
 async def get_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["skills"] = update.message.text.strip()
     await update.message.reply_text(
@@ -159,11 +158,11 @@ async def get_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "ምሳሌ፦ አማርኛ, English"
     )
     return LANGUAGES
-
-
+ 
+ 
 async def get_languages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["languages"] = update.message.text.strip()
-
+ 
     data = context.user_data
     preview = (
         "📋 *የገባው መረጃ ይህ ነው፤ እባክዎ ያረጋግጡ፦*\n\n"
@@ -181,32 +180,32 @@ async def get_languages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         preview, parse_mode=ParseMode.MARKDOWN, reply_markup=confirm_keyboard()
     )
     return CONFIRM
-
-
+ 
+ 
 async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
+ 
     if query.data == "confirm_restart":
         context.user_data.clear()
         await query.edit_message_text("🔁 እሺ፣ ከመጀመሪያው እንጀምር። /start ብለው ይላኩ።")
         return ConversationHandler.END
-
+ 
     # confirm_yes -> generate the PDF
     await query.edit_message_text("⏳ CV እየተሰራ ነው፣ እባክዎ ይጠብቁ...")
-
+ 
     user_id = query.from_user.id
     data = context.user_data
-
+ 
     locked_pdf_path, password = generate_locked_cv(data, config.WORK_DIR, user_id)
-
+ 
     PENDING[user_id] = {
         "password": password,
         "locked_pdf": locked_pdf_path,
         "paid": False,
         "full_name": data.get("full_name", ""),
     }
-
+ 
     with open(locked_pdf_path, "rb") as f:
         await context.bot.send_document(
             chat_id=user_id,
@@ -220,23 +219,23 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ),
             parse_mode=ParseMode.MARKDOWN,
         )
-
+ 
     await context.bot.send_message(
         chat_id=user_id,
         text="💳 *የክፍያ አማራጮች*",
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=payment_keyboard(),
     )
-
+ 
     return ConversationHandler.END
-
-
+ 
+ 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text("❌ ተሰርዟል። እንደገና ለመጀመር /start ይላኩ።")
     return ConversationHandler.END
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # Payment: Telegram Stars
 # ---------------------------------------------------------------------------
@@ -244,13 +243,13 @@ async def pay_with_stars(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-
+ 
     if user_id not in PENDING:
         await query.message.reply_text("⚠️ መጀመሪያ CV ይስሩ፣ /start ይላኩ።")
         return
-
+ 
     prices = [LabeledPrice("CV PDF Password", config.STAR_PRICE)]
-
+ 
     await context.bot.send_invoice(
         chat_id=user_id,
         title="የ CV PDF Password",
@@ -260,34 +259,34 @@ async def pay_with_stars(update: Update, context: ContextTypes.DEFAULT_TYPE):
         currency="XTR",
         prices=prices,
     )
-
-
+ 
+ 
 async def pre_checkout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.pre_checkout_query
     # እዚህ ላይ ተጨማሪ ማረጋገጫ ማድረግ ይቻላል
     await query.answer(ok=True)
-
-
+ 
+ 
 async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-
+ 
     if user_id not in PENDING:
         await update.message.reply_text(
             "✅ ክፍያዎ ተቀብለናል፣ ነገር ግን የ CV መረጃ አላገኘንም። እባክዎ /start ብለው ይላኩ።"
         )
         return
-
+ 
     PENDING[user_id]["paid"] = True
     password = PENDING[user_id]["password"]
-
+ 
     await update.message.reply_text(
         "✅ ክፍያዎ በተሳካ ሁኔታ ተጠናቅቋል!\n\n"
         f"🔑 የ CV PDF ዎን password፦\n`{password}`\n\n"
         "ይህን password በ PDF ሲከፍቱ ይጠቀሙ። አመሰግናለሁ! 🙏",
         parse_mode=ParseMode.MARKDOWN,
     )
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # Payment: Teleberr (manual verification by admin)
 # ---------------------------------------------------------------------------
@@ -295,11 +294,11 @@ async def pay_with_teleberr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-
+ 
     if user_id not in PENDING:
         await query.message.reply_text("⚠️ መጀመሪያ CV ይስሩ፣ /start ይላኩ።")
         return
-
+ 
     await context.bot.send_message(
         chat_id=user_id,
         text=(
@@ -312,22 +311,22 @@ async def pay_with_teleberr(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
         parse_mode=ParseMode.MARKDOWN,
     )
-
-
+ 
+ 
 async def receive_payment_proof(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """ተጠቃሚው የ Teleberr screenshot ሲልክ admin ጋር ይደርሳል።"""
     user = update.message.from_user
     user_id = user.id
-
+ 
     if user_id not in PENDING:
         return  # ተጠቃሚው CV ገና አልሰራም፤ ፎቶውን ችላ እንል
-
+ 
     if PENDING[user_id].get("paid"):
         await update.message.reply_text("✅ ክፍያዎ ቀደም ብሎ ተረጋግጧል።")
         return
-
+ 
     photo = update.message.photo[-1]
-
+ 
     caption = (
         "🧾 *አዲስ የ Teleberr ክፍያ ማረጋገጫ*\n\n"
         f"👤 ስም፡ {user.full_name}\n"
@@ -335,14 +334,14 @@ async def receive_payment_proof(update: Update, context: ContextTypes.DEFAULT_TY
         f"📄 CV ስም፡ {PENDING[user_id].get('full_name')}\n\n"
         "ክፍያውን አረጋግጠው password ለመላክ ከታች ይምረጡ 👇"
     )
-
+ 
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ አረጋግጥ (Approve)", callback_data=f"approve_{user_id}"),
             InlineKeyboardButton("❌ አትቀበል (Reject)", callback_data=f"reject_{user_id}"),
         ]
     ])
-
+ 
     await context.bot.send_photo(
         chat_id=config.ADMIN_CHAT_ID,
         photo=photo.file_id,
@@ -350,32 +349,32 @@ async def receive_payment_proof(update: Update, context: ContextTypes.DEFAULT_TY
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=keyboard,
     )
-
+ 
     await update.message.reply_text(
         "📨 የክፍያ ማረጋገጫዎ ለ አስተዳዳሪ ተልኳል። እባክዎ ይጠብቁ፣ በቅርቡ password ይደርስዎታል።"
     )
-
-
+ 
+ 
 async def admin_decision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Admin ብቻ 'Approve'/'Reject' ሲጫን የሚሰራ handler።"""
     query = update.callback_query
-
+ 
     if query.from_user.id != config.ADMIN_CHAT_ID:
         await query.answer("⛔ ይህን የመጫን ፍቃድ የለዎትም።", show_alert=True)
         return
-
+ 
     await query.answer()
     action, user_id_str = query.data.split("_", 1)
     user_id = int(user_id_str)
-
+ 
     if user_id not in PENDING:
         await query.edit_message_caption(caption="⚠️ ይህ ተጠቃሚ ውሂብ አልተገኘም (ምናልባት expired)።")
         return
-
+ 
     if action == "approve":
         PENDING[user_id]["paid"] = True
         password = PENDING[user_id]["password"]
-
+ 
         await context.bot.send_message(
             chat_id=user_id,
             text=(
@@ -389,7 +388,7 @@ async def admin_decision_callback(update: Update, context: ContextTypes.DEFAULT_
             caption=query.message.caption + "\n\n✅ *ጸድቋል፣ password ተልኳል*",
             parse_mode=ParseMode.MARKDOWN,
         )
-
+ 
     elif action == "reject":
         await context.bot.send_message(
             chat_id=user_id,
@@ -402,21 +401,21 @@ async def admin_decision_callback(update: Update, context: ContextTypes.DEFAULT_
             caption=query.message.caption + "\n\n❌ *ውድቅ ተደርጓል*",
             parse_mode=ParseMode.MARKDOWN,
         )
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
-# Main
+# Build the Application (used both for local polling and for Render deploy)
 # ---------------------------------------------------------------------------
-def main():
+def build_application() -> Application:
     if config.BOT_TOKEN == "PUT_YOUR_BOT_TOKEN_HERE":
         raise SystemExit(
             "እባክዎ config.py ላይ ወይም .env ፋይል ውስጥ BOT_TOKEN ያስቀምጡ።"
         )
-
+ 
     os.makedirs(config.WORK_DIR, exist_ok=True)
-
+ 
     application = Application.builder().token(config.BOT_TOKEN).build()
-
+ 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -433,28 +432,35 @@ def main():
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
-
+ 
     application.add_handler(conv_handler)
-
+ 
     # Payment button handlers
     application.add_handler(CallbackQueryHandler(pay_with_stars, pattern="^pay_stars$"))
     application.add_handler(CallbackQueryHandler(pay_with_teleberr, pattern="^pay_teleberr$"))
-
+ 
     # Telegram Stars payment handlers
     application.add_handler(PreCheckoutQueryHandler(pre_checkout_callback))
     application.add_handler(
         MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback)
     )
-
+ 
     # Teleberr manual flow
     application.add_handler(MessageHandler(filters.PHOTO, receive_payment_proof))
     application.add_handler(
         CallbackQueryHandler(admin_decision_callback, pattern="^(approve|reject)_")
     )
-
-    logger.info("Bot is starting...")
+ 
+    return application
+ 
+ 
+def main():
+    """በራስ ኮምፒዩተር ላይ (locally) ለ testing ብቻ ጥቅም ላይ የሚውል - polling mode."""
+    application = build_application()
+    logger.info("Bot is starting (polling mode)...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-
+ 
+ 
 if __name__ == "__main__":
     main()
+ 
