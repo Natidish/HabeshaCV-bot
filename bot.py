@@ -1,3 +1,4 @@
+
 """
 bot.py
 CV Maker Telegram Bot
@@ -12,6 +13,7 @@ CV Maker Telegram Bot
  5. ክፍያው ከተረጋገጠ በኋላ password ወደ ተጠቃሚው ይላካል
 """
  
+import asyncio
 import logging
 import os
  
@@ -456,6 +458,14 @@ def build_application() -> Application:
  
 def main():
     """በራስ ኮምፒዩተር ላይ (locally) ለ testing ብቻ ጥቅም ላይ የሚውል - polling mode."""
+    # አዲስ የ Python ስሪቶች (3.14+) ላይ asyncio.get_event_loop() ራሱ አዲስ
+    # event loop መፍጠር ስለሚያቆም፣ ራሳችን በግልጽ loop እንፈጥራለን/እናዘጋጃለን።
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+ 
     application = build_application()
     logger.info("Bot is starting (polling mode)...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
