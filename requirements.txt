@@ -1,4 +1,5 @@
 python-telegram-bot[job-queue]==21.6
 reportlab==4.2.5
-pikepdf==9.4.2
+pypdf==5.9.0
 python-dotenv==1.0.1
+flask==3.0.3
